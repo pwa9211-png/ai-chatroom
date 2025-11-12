@@ -1,0 +1,15 @@
+{
+  "name": "ai-chatroom",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "openai": "^4.8.0",
+    "mongodb": "^5.9.0"
+  }
+}
