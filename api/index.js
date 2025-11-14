@@ -1,4 +1,4 @@
-// server.js
+// api/index.js
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
-const io = new Server(io, { transports: ['websocket'] });
+const io = new Server(server, { transports: ['websocket'] });
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const MONGODB_URI = process.env.MONGODB_URI || '';
@@ -34,11 +34,14 @@ let messagesCollection = null;
   }
 })();
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// 静态文件
+app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/', (_req, res) =>
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'))
+);
 
-const roomSystemPrompt = {};   // { roomId: "你是老师..." }
-const roomUsers = {};          // { roomId: Set([user1, user2]) }
+const roomSystemPrompt = {};
+const roomUsers = {};
 
 io.on('connection', (socket) => {
   console.log('🟢 连接:', socket.id);
@@ -49,9 +52,7 @@ io.on('connection', (socket) => {
     socket.user = user;
     if (!roomUsers[room]) roomUsers[room] = new Set();
     roomUsers[room].add(user);
-    console.log(`📥 ${user} 加入 ${room}`);
 
-    // 历史消息
     if (messagesCollection) {
       const docs = await messagesCollection
         .find({ room })
@@ -89,7 +90,6 @@ io.on('connection', (socket) => {
     if (messagesCollection) await messagesCollection.insertOne(msgDoc);
     io.to(room).emit('chat message', msgDoc);
 
-    // AI 回答
     const msgs = [];
     if (roomSystemPrompt[room]) msgs.push({ role: 'system', content: roomSystemPrompt[room] });
     msgs.push({ role: 'user', content: text });
