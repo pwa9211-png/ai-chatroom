@@ -5,19 +5,20 @@
   <title>AI 聊天室</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif; margin:0; background:#f3f4f6; }
-    .wrap { max-width: 980px; margin: 20px auto; display:flex; gap:16px; padding: 0 12px; }
-    .panel { background:white; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.06); padding:12px; flex:1; }
-    #messages { height: 70vh; overflow-y:auto; padding:10px; border-radius:8px; border:1px solid #eef2f7; }
-    .msg { padding:8px; margin-bottom:8px; border-radius:8px; }
-    .msg.user { background:#eef6ff; text-align:left; }
-    .msg.ai { background:#fff7ed; text-align:left; }
-    .msg.system { background:#f3f4f5; color:#6b7280; font-size:13px; }
-    #inputRow { display:flex; gap:8px; margin-top:10px; }
-    input[type="text"] { flex:1; padding:10px; border-radius:8px; border:1px solid #e5e7eb; }
-    button { padding:10px 12px; border-radius:8px; border:none; background:#0366d6; color:white; font-weight:600; }
-    .side { width:240px; min-width:200px; }
-    .meta { font-size:13px; color:#374151; margin-bottom:8px; }
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang TC","Microsoft JhengHei",sans-serif;margin:0;background:#f3f4f6}
+    .wrap{max-width:980px;margin:20px auto;display:flex;gap:16px;padding:0 12px}
+    .panel{background:white;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.06);padding:12px;flex:1}
+    #messages{height:60vh;overflow-y:auto;padding:10px;border:1px solid #eef2f7;border-radius:8px}
+    .msg{padding:8px;margin-bottom:8px;border-radius:8px}
+    .msg.user{background:#eef6ff}
+    .msg.ai{background:#fff7ed}
+    .msg.system{background:#f3f4f5;color:#6b7280;font-size:13px}
+    #inputRow{display:flex;gap:8px;margin-top:10px}
+    input[type=text]{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:8px}
+    button{padding:10px 12px;border:none;border-radius:8px;background:#0366d6;color:white;font-weight:600}
+    .side{width:240px;min-width:200px}
+    .meta{font-size:13px;color:#374151;margin-bottom:8px}
+    ul{margin:0;padding-left:16px;font-size:14px}
   </style>
 </head>
 <body>
@@ -30,9 +31,7 @@
         </div>
         <div style="font-size:12px;color:#9ca3af">AI: GPT 模型</div>
       </div>
-
       <div id="messages"></div>
-
       <div id="inputRow">
         <input id="msgInput" placeholder="輸入訊息，或輸入 /角色 老師 來設定AI扮演" />
         <button id="sendBtn">送出</button>
@@ -47,62 +46,57 @@
       <div class="meta">指令</div>
       <div><code>/角色 角色名</code> — 讓 AI 扮演指定角色（全房間生效）</div>
       <div style="margin-top:8px;color:#6b7280;font-size:13px">訊息會同步保存到資料庫。</div>
+      <hr style="margin:8px 0" />
+      <div class="meta">在線成員</div>
+      <ul id="members"></ul>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
     const params = new URLSearchParams(location.search);
-    const user = params.get("user") || "訪客";
-    const room = params.get("room") || "一般";
+    const user = params.get('user')?.trim() || '訪客';
+    const room = params.get('room')?.trim() || '一般';
 
-    document.getElementById("roomTitle").textContent = "房間：" + room;
-    document.getElementById("roomName").textContent = room;
-    document.getElementById("userName").textContent = user;
-    document.getElementById("me").textContent = "你：" + user;
+    document.getElementById('roomTitle').textContent = `房間：${room}`;
+    document.getElementById('roomName').textContent = room;
+    document.getElementById('userName').textContent = user;
+    document.getElementById('me').textContent = `你：${user}`;
 
-    const messagesEl = document.getElementById("messages");
-    const input = document.getElementById("msgInput");
-    const sendBtn = document.getElementById("sendBtn");
+    const socket = io({ transports: ['websocket'] });
+    socket.emit('join', { room, user });
 
-    function appendMessage(doc) {
-      const d = document.createElement("div");
-      d.className = "msg " + (doc.role || "user");
-      const time = new Date(doc.timestamp).toLocaleString();
-      d.innerHTML = `<div style="font-size:13px;color:#374151"><strong>${doc.user}</strong> <span style="font-size:12px;color:#6b7280"> ${time}</span></div>
-                     <div style="margin-top:6px;white-space:pre-wrap">${doc.text}</div>`;
-      messagesEl.appendChild(d);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+    function renderMsg(doc) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (doc.role || 'user');
+      const t = new Date(doc.timestamp).toLocaleString();
+      div.innerHTML = `<div style="font-size:13px;color:#374151">
+                        <strong>${doc.user}</strong>
+                        <span style="font-size:12px;color:#6b7280"> ${t}</span>
+                      </div>
+                      <div style="margin-top:6px;white-space:pre-wrap">${doc.text}</div>`;
+      const box = document.getElementById('messages');
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
     }
-
-    // 連線並 join
-    socket.emit("join", { room, user });
-
-    // 歷史
-    socket.on("history", (docs) => {
-      docs.forEach(appendMessage);
+    socket.on('history', list => list.forEach(renderMsg));
+    socket.on('chat message', renderMsg);
+    socket.on('system', msg => renderMsg({ ...msg, role: 'system' }));
+    socket.on('members', arr => {
+      document.getElementById('members').innerHTML = arr.map(n => `<li>${n}</li>`).join('');
     });
 
-    socket.on("system", (msg) => {
-      appendMessage({ user: "系統", text: msg.text, role: "system", timestamp: new Date() });
-    });
-
-    socket.on("chat message", (msg) => {
-      appendMessage(msg);
-    });
-
-    sendBtn.addEventListener("click", sendMessage);
-    input.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    function sendMessage() {
-      const text = input.value.trim();
-      if (!text) return;
-      socket.emit("chat message", { room, user, text });
-      input.value = "";
+    function send() {
+      const ipt = document.getElementById('msgInput');
+      const txt = ipt.value.trim();
+      if (!txt) return;
+      socket.emit('chat message', { room, user, text: txt });
+      ipt.value = '';
     }
+    document.getElementById('sendBtn').addEventListener('click', send);
+    document.getElementById('msgInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') send();
+    });
   </script>
 </body>
 </html>
